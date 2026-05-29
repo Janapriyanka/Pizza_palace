@@ -41,7 +41,7 @@ export default function HeroSection() {
                 className="text-4xl sm:text-5xl md:text-7xl font-black leading-[0.9] tracking-tighter uppercase text-zinc-900 dark:text-white"
               >
                 CRAFTING THE <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-600 italic">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-600 italic pr-3 pb-1">
                   PERFECT SLICE
                 </span>
               </motion.h1>

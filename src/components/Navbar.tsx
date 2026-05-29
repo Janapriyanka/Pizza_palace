@@ -52,7 +52,7 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Nav Routing Links */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden lg:flex items-center gap-5 xl:gap-8 ml-8">
             {navItems.map((item) => (
               <NavLink id={`nav-link-${item.label.toLowerCase().replace(' ', '-')}`} key={item.label} to={item.path} className={activeStyle}>
                 {({ isActive }) => (
@@ -72,7 +72,7 @@ export default function Navbar() {
           </div>
 
           {/* Right Nav Utilities */}
-          <div className="hidden md:flex items-center gap-6">
+          <div className="hidden lg:flex items-center gap-4 xl:gap-6">
             
             {/* Theme Toggle */}
             <button
@@ -149,7 +149,7 @@ export default function Navbar() {
           </div>
 
           {/* Mobile responsive toggle button */}
-          <div className="md:hidden flex items-center gap-2">
+          <div className="lg:hidden flex items-center gap-2">
             <button
               id="mobile-theme-toggle-btn"
               onClick={toggleTheme}
@@ -198,7 +198,7 @@ export default function Navbar() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="md:hidden bg-white/95 dark:bg-[#121214]/95 border-b border-gray-100 dark:border-gray-800/80 overflow-hidden"
+            className="lg:hidden bg-white/95 dark:bg-[#121214]/95 border-b border-gray-100 dark:border-gray-800/80 overflow-hidden"
           >
             <div className="px-4 pt-2 pb-6 space-y-3">
               {navItems.map((item) => (
