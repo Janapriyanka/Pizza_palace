@@ -128,7 +128,7 @@ Return ONLY the pure JSON object.`;
       while (attempt < maxAttempts) {
         try {
           result = await client.models.generateContent({
-            model: "gemini-3.5-flash",
+            model: "gemini-2.5-flash",
             contents: prompt,
             config: {
               responseMimeType: "application/json",

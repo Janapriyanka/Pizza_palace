@@ -102,7 +102,7 @@ export const PIZZAS: Pizza[] = [
     name: 'Truffle Mushroom Fusion',
     description: 'An elegant gourmet delicacy featuring wild forest mushrooms, drizzled with premium Black Truffle oil, fresh rosemary, sea salt, baby arugula, and shaved shaved Parmesan flakes.',
     price: 549,
-    image: 'https://images.unsplash.com/photo-1604917621956-10dfa7cce2e7?auto=format&fit=crop&w=600&q=80',
+    image: 'https://images.unsplash.com/photo-1593560708920-61dd98c46a4e?auto=format&fit=crop&w=600&q=80',
     category: 'Supreme',
     isVeg: true,
     rating: 4.8,
