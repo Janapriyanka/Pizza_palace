@@ -1,0 +1,6 @@
+{
+  "name": "Pizza Palace",
+  "description": "A professional and modern digital storefront and ordering platform for Pizza Palace, complete with customizable options, cart management, and order simulation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

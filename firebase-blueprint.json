@@ -1,0 +1,156 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with role details",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique Firebase Auth user ID"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the user"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["customer", "owner"],
+          "description": "User privilege role"
+        }
+      },
+      "required": ["uid", "email", "name", "role"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": " Artistry Pizza palace order",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The custom ORD-... readable ID"
+        },
+        "customerUid": {
+          "type": "string",
+          "description": "User ID of the customer who ordered"
+        },
+        "customerEmail": {
+          "type": "string",
+          "description": "Email of the customer"
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Name of the customer"
+        },
+        "items": {
+          "type": "array",
+          "description": "Cart items contained in this order"
+        },
+        "subtotal": {
+          "type": "number",
+          "description": "Pre-tax subtotal"
+        },
+        "deliveryFee": {
+          "type": "number",
+          "description": "Delivery fee"
+        },
+        "tax": {
+          "type": "number",
+          "description": "Service goods tax"
+        },
+        "discount": {
+          "type": "number",
+          "description": "Promo coupon discount"
+        },
+        "total": {
+          "type": "number",
+          "description": "Final price sum"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Received", "Preparing", "Baking", "Quality Check", "Ready", "Out for Delivery", "Delivered", "Cancelled"],
+          "description": "Stage status of food preparation and delivery"
+        },
+        "orderType": {
+          "type": "string",
+          "enum": ["Delivery", "DineIn"],
+          "description": "Delivery vs Dine-In option"
+        },
+        "tableNumber": {
+          "type": "string",
+          "description": "Table identification for dine-in"
+        },
+        "deliveryAddress": {
+          "type": "string",
+          "description": "Full home address for delivery"
+        },
+        "couponCode": {
+          "type": "string",
+          "description": "The applied coupon promo"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Latest stage update time format"
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Epoch timestamp when ordered"
+        }
+      },
+      "required": ["id", "customerUid", "customerEmail", "customerName", "items", "subtotal", "deliveryFee", "tax", "discount", "total", "status", "orderType", "updatedAt", "createdAt"]
+    },
+    "PizzaReview": {
+      "title": "PizzaReview",
+      "description": "Handcrafted pizza stars and feedback review",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "orderId": {
+          "type": "string"
+        },
+        "customerUid": {
+          "type": "string"
+        },
+        "customerName": {
+          "type": "string"
+        },
+        "pizzaId": {
+          "type": "string"
+        },
+        "pizzaName": {
+          "type": "string"
+        },
+        "rating": {
+          "type": "number"
+        },
+        "comment": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "number"
+        }
+      },
+      "required": ["id", "orderId", "customerUid", "customerName", "pizzaId", "pizzaName", "rating", "comment", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "A collection containing user profiles"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "A collection containing customer pizza orders"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "PizzaReview",
+      "description": "A collection containing customer reviews of pizzas"
+    }
+  }
+}
