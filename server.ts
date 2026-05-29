@@ -120,21 +120,43 @@ For the toppings array, please select from these actual kitchen toppings where a
 
 Return ONLY the pure JSON object.`;
 
-      const result = await client.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-        },
-      });
+      let result;
+      let attempt = 0;
+      const maxAttempts = 3;
+      let delayMs = 800;
+
+      while (attempt < maxAttempts) {
+        try {
+          result = await client.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: prompt,
+            config: {
+              responseMimeType: "application/json",
+            },
+          });
+          break; // Success!
+        } catch (err: any) {
+          attempt++;
+          console.warn(`Gemini attempt ${attempt} failed with message: ${err.message}`);
+          if (attempt >= maxAttempts) {
+            throw err; // Out of attempts, propagate error
+          }
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          delayMs *= 2; // exponential backoff wait
+        }
+      }
+
+      if (!result) {
+        throw new Error("Empty response received from culinary model");
+      }
 
       const responseText = result.text || "{}";
       const cleanJson = responseText.trim().replace(/^```json/, "").replace(/```$/, "").trim();
       const parsedPizza = JSON.parse(cleanJson);
       res.json(parsedPizza);
     } catch (error: any) {
-      console.warn("Gemini Error:", error.message);
-      // Fallback response inside the API in case API key is missing or invalid
+      console.warn("Gemini Error:", error.message || error);
+      // Fallback response inside the API in case API key is missing or invalid or overloaded
       res.status(500).json({
         error: "Failed to generate recommendation via Gemini",
         isFallback: true,

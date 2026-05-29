@@ -83,7 +83,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // --- STATE INITIALIZATION ---
   const [cart, setCart] = useState<CartItem[]>(() => {
     const local = localStorage.getItem('pizza_palace_cart');
-    return local ? JSON.parse(local) : [];
+    if (local) {
+      try {
+        const parsed: CartItem[] = JSON.parse(local);
+        return parsed.map((item: CartItem) => {
+          if (item.pizza.id.startsWith('ai-recommender-')) {
+            return {
+              ...item,
+              unitPrice: item.pizza.price
+            };
+          }
+          return item;
+        });
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
   });
 
   const [wishlist, setWishlist] = useState<string[]>(() => {

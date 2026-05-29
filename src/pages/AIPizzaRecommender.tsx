@@ -219,12 +219,32 @@ export default function AIPizzaRecommender() {
   const handleAddToPlate = () => {
     if (!result) return;
 
+    const selectPizzaImage = (name: string, toppings: string[]): string => {
+      const combined = `${name} ${toppings.join(' ')}`.toLowerCase();
+      if (combined.includes('pepperoni')) {
+        return 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=600&q=80';
+      }
+      if (combined.includes('chicken') || combined.includes('bbq')) {
+        return 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=600&q=80';
+      }
+      if (combined.includes('paneer') || combined.includes('tikka') || combined.includes('spicy') || combined.includes('volcano')) {
+        return 'https://images.unsplash.com/photo-1594007654729-407ededc414a?auto=format&fit=crop&w=600&q=80';
+      }
+      if (combined.includes('cheese') || combined.includes('comfort') || combined.includes('melty') || combined.includes('margherita')) {
+        return 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?auto=format&fit=crop&w=600&q=80';
+      }
+      if (combined.includes('mushroom') || combined.includes('truffle')) {
+        return 'https://images.unsplash.com/photo-1604917621956-10dfa7cce2e7?auto=format&fit=crop&w=600&q=80';
+      }
+      return 'https://images.unsplash.com/photo-1534308983496-4fabb1a015ee?auto=format&fit=crop&w=600&q=80';
+    };
+
     const basePizzaItem: Pizza = {
       id: `ai-recommender-${Date.now()}`,
       name: result.name,
       description: result.description,
       price: result.estimatedPrice,
-      image: 'https://images.unsplash.com/photo-1594007654729-407ededc414a?auto=format&fit=crop&w=600&q=80',
+      image: selectPizzaImage(result.name, result.toppings),
       category: 'Signature',
       isVeg: !result.toppings.some(t => ['Pepperoni', 'Italian Sausage', 'BBQ Chicken'].includes(t)),
       rating: 4.9,
