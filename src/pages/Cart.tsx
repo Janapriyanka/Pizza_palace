@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingBag, Trash2, ArrowLeft, Ticket, Check, MapPin, Bike, Timer, ChevronRight, Phone, Flame, RotateCw, X, Table, Star, Clock, ShieldCheck, Sparkles, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { OrderStatus } from '../types';
+import SafePizzaImage from '../components/SafePizzaImage';
 
 function PizzaFeedbackItemRow({
   item,
@@ -349,11 +350,10 @@ export default function Cart() {
                     >
                       {/* Image + customizations and ingredients */}
                       <div className="flex gap-4 items-start sm:items-center">
-                        <img
+                        <SafePizzaImage
                           src={item.pizza.image}
                           alt={item.pizza.name}
                           className="w-16 h-16 object-cover rounded-xl border border-zinc-200/50 dark:border-white/5 shrink-0"
-                          referrerPolicy="no-referrer"
                         />
                         <div>
                           <div className="flex items-center gap-2">

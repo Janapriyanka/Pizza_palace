@@ -9,6 +9,7 @@ import { useApp } from '../context/AppContext';
 import { Heart, Star, Plus, Minus, X, Check, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SIZE_MULTIPLIERS, CRUST_PREMIUMS, EXTRA_TOPPING_PRICE, EXTRA_CHEESE_PRICE, AVAILABLE_TOPPINGS } from '../data/pizzaData';
+import SafePizzaImage from './SafePizzaImage';
 
 interface PizzaCardProps {
   pizza: Pizza;
@@ -78,11 +79,10 @@ export default function PizzaCard({ pizza }: PizzaCardProps) {
     >
       {/* Pizza Thumbnail with Badges */}
       <div className="relative aspect-video overflow-hidden">
-        <img
+        <SafePizzaImage
           src={pizza.image}
           alt={pizza.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          referrerPolicy="no-referrer"
           loading="lazy"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity duration-300" />
@@ -222,7 +222,7 @@ export default function PizzaCard({ pizza }: PizzaCardProps) {
               {/* Pizza Intro Banner */}
               <div className="p-6 pb-2 grid grid-cols-1 md:grid-cols-5 gap-6">
                 <div className="md:col-span-2 aspect-[4/3] rounded-2xl overflow-hidden relative shadow-inner">
-                  <img src={pizza.image} alt={pizza.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <SafePizzaImage src={pizza.image} alt={pizza.name} className="w-full h-full object-cover" />
                   {pizza.isVeg ? (
                     <span className="absolute top-2 left-2 bg-emerald-500 text-white font-bold text-[9px] px-2 py-0.5 rounded-full shadow">Veg</span>
                   ) : (

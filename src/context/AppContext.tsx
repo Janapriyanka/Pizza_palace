@@ -347,9 +347,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const cheesePremium = customization.extraCheese ? EXTRA_CHEESE_PRICE : 0;
     const toppingsPremium = customization.extraToppings.length * EXTRA_TOPPING_PRICE;
 
-    const calculatedUnitPrice = parseFloat(
+    let calculatedUnitPrice = parseFloat(
       ((baseP * sizeMultiplier) + crustPremium + cheesePremium + toppingsPremium).toFixed(2)
     );
+
+    if (pizza.id.startsWith('ai-recommender-')) {
+      calculatedUnitPrice = baseP;
+    }
 
     setCart(prevCart => {
       const existingIndex = prevCart.findIndex(item => item.id === cartItemId);
