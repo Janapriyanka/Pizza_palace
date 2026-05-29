@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Flame, Clock, Truck, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Flame, Clock, Truck, ShieldCheck, Sparkles, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function HeroSection() {
@@ -61,30 +61,33 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3"
+              className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 w-full"
             >
               <Link
                 id="hero-order-now-btn"
                 to="/menu"
-                className="w-full sm:w-auto px-6 py-4 bg-orange-600 hover:bg-orange-700 rounded-xl font-bold text-white shadow-lg shadow-orange-600/20 transition-all duration-300 active:scale-95 text-center uppercase tracking-wider text-xs"
+                className="w-full sm:w-auto px-6 py-3.5 bg-orange-600 hover:bg-orange-500 rounded-lg font-bold text-white shadow-lg shadow-orange-600/10 transition-all duration-300 active:scale-95 text-center uppercase tracking-widest text-xs flex items-center justify-center gap-2 group border border-orange-600 hover:border-orange-500"
               >
-                Standard Menu
+                <span>Standard Menu</span>
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </Link>
               
               <Link
                 id="hero-build-pizza-game-btn"
                 to="/builder"
-                className="w-full sm:w-auto px-6 py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 rounded-xl font-bold text-white shadow-lg shadow-amber-500/15 transition-all duration-300 active:scale-95 text-center uppercase tracking-wider text-xs"
+                className="w-full sm:w-auto px-6 py-3.5 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-700/80 text-zinc-100 rounded-lg font-bold transition-all duration-300 active:scale-95 text-center uppercase tracking-widest text-xs flex items-center justify-center gap-2"
               >
-                Build Own Pizza 🎮
+                <span>Build Own Pizza</span>
               </Link>
 
               <Link
                 id="hero-ai-recommend-center-btn"
                 to="/ai-recommender"
-                className="w-full sm:w-auto px-6 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-xl font-bold text-white shadow-lg shadow-indigo-600/15 transition-all duration-300 active:scale-95 text-center uppercase tracking-wider text-xs"
+                className="w-full sm:w-auto px-6 py-3.5 bg-zinc-950/60 hover:bg-zinc-950 border border-purple-500/40 hover:border-purple-400 text-purple-200 rounded-lg font-bold transition-all duration-300 active:scale-95 text-center uppercase tracking-widest text-xs flex items-center justify-center gap-2 relative overflow-hidden group"
               >
-                AI Chef Table 🤖
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-indigo-500/5 to-transparent pointer-events-none" />
+                <Sparkles className="w-3.5 h-3.5 text-purple-400 group-hover:animate-pulse" />
+                <span>AI Chef Table</span>
               </Link>
             </motion.div>
 
