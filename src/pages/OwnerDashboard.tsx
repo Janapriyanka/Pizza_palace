@@ -6,8 +6,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { db } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { OrderTrack, OrderStatus } from '../types';
 import { 
   Flame, 
@@ -44,32 +42,18 @@ export default function OwnerDashboard() {
       return () => clearTimeout(timer);
     }
   }, [currentUser, navigate]);
-
-  // --- LISTEN TO ENGINE ORDERS (FIRESTORE STREAM + REST BACKUP SYNC) ---
+  // --- LISTEN TO ENGINE ORDERS (REST API SECURED WITH JWT) ---
   useEffect(() => {
     if (!currentUser.isLoggedIn || currentUser.role !== 'owner') return;
 
-    // 1. Live Firestore Listener
-    const ordersCol = collection(db, 'orders');
-    const q = query(ordersCol);
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const orderList: OrderTrack[] = [];
-      snapshot.forEach((doc) => {
-        orderList.push({ ...doc.data() } as OrderTrack);
-      });
-      // Sort client-side to avoid needing an index
-      orderList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      setOrders(orderList);
-      setLoading(false);
-    }, (error) => {
-      console.warn("Owner orders Firestore stream offline, continuing with REST polling:", error);
-    });
-
-    // 2. High Availability Backup REST Poll
     const syncOrders = async () => {
       try {
-        const response = await fetch("/api/orders");
+        const token = localStorage.getItem('pizza_palace_jwt_token');
+        const response = await fetch("/api/orders", {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
         if (response.ok) {
           const orderList = await response.json();
           orderList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -87,12 +71,9 @@ export default function OwnerDashboard() {
     }, 3000);
 
     return () => {
-      unsubscribe();
       clearInterval(interval);
     };
-  }, [currentUser]);
-
-  if (!currentUser.isLoggedIn || currentUser.role !== 'owner') {
+  }, [currentUser]);  if (!currentUser.isLoggedIn || currentUser.role !== 'owner') {
     return (
       <div className="py-24 bg-zinc-50 dark:bg-[#0c0c0c] min-h-screen flex items-center justify-center transition-colors px-4 font-sans text-center">
         <div className="bg-white dark:bg-[#151515] p-8 rounded-3xl border border-zinc-200/50 dark:border-white/5 shadow-md max-w-md w-full space-y-6">
