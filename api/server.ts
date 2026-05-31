@@ -648,7 +648,7 @@ app.get("/api/orders", verifyToken as any, async (req: AuthenticatedRequest, res
     if (req.user.role === "admin" || req.user.role === "owner") {
       orders = await Order.find().sort({ createdAt: -1 });
     } else {
-      orders = await Order.find({ customerUid: req.user.id }).sort({ createdAt: -1 });
+      orders = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
     }
     res.json(orders);
   } catch (err: any) {
@@ -664,12 +664,12 @@ app.get("/api/orders/my", verifyToken as any, async (req: AuthenticatedRequest, 
     }
 
     if (useInMemoryFallback) {
-      const orders = IN_MEMORY_ORDERS.filter(o => o.customerUid === req.user?.id);
+      const orders = IN_MEMORY_ORDERS.filter(o => o.customerUid === req.user?.id || o.userId === req.user?.id);
       res.json(orders);
       return;
     }
 
-    const orders = await Order.find({ customerUid: req.user.id }).sort({ createdAt: -1 });
+    const orders = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err: any) {
     res.status(500).json({ success: false, message: "Failed to retrieve order history." });

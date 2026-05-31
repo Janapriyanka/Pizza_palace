@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface SafePizzaImageProps {
   src?: string;
@@ -17,11 +17,17 @@ interface SafePizzaImageProps {
 export default function SafePizzaImage({ src, alt, className, pizzaName, ...props }: SafePizzaImageProps) {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   // Reset loading states when src is modified
   useEffect(() => {
     setError(false);
     setLoaded(false);
+
+    // If image is already fully loaded from cache, set loaded state immediately
+    if (imgRef.current && imgRef.current.complete) {
+      setLoaded(true);
+    }
   }, [src]);
 
   const name = pizzaName || alt || 'Delicious Pizza';
@@ -82,6 +88,7 @@ export default function SafePizzaImage({ src, alt, className, pizzaName, ...prop
       )}
       
       <img
+        ref={imgRef}
         src={src}
         alt={alt}
         onLoad={() => setLoaded(true)}
