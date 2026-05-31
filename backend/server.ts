@@ -9,13 +9,13 @@ import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 
 // Models
-import { User } from "./src/models/User.js";
-import { Pizza } from "./src/models/Pizza.js";
-import { Order } from "./src/models/Order.js";
-import { Review } from "./src/models/Review.js";
+import { User } from "./src/models/User.ts";
+import { Pizza } from "./src/models/Pizza.ts";
+import { Order } from "./src/models/Order.ts";
+import { Review } from "./src/models/Review.ts";
 
 // Middleware
-import { verifyToken, isAdmin, AuthenticatedRequest } from "./src/middleware/auth.js";
+import { verifyToken, isAdmin, AuthenticatedRequest } from "./src/middleware/auth.ts";
 
 dotenv.config();
 
