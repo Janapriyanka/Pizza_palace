@@ -6,26 +6,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { Pizza, PizzaCustomization, CartItem, User, ToastMessage, OrderStatus, OrderTrack, PizzaReview } from '../types';
 import { SIZE_MULTIPLIERS, CRUST_PREMIUMS, EXTRA_TOPPING_PRICE, EXTRA_CHEESE_PRICE } from '../data/pizzaData';
-import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  updateProfile 
-} from 'firebase/auth';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  query, 
-  collection, 
-  where, 
-  orderBy, 
-  limit, 
-  onSnapshot,
-  updateDoc 
-} from 'firebase/firestore';
 
 interface AppContextType {
   cart: CartItem[];
@@ -107,13 +87,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return local ? JSON.parse(local) : [];
   });
 
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    const local = localStorage.getItem('pizza_palace_curr_user');
-    return local ? JSON.parse(local) : {
-      email: '',
-      name: 'Guest',
-      isLoggedIn: false
-    };
+  const [currentUser, setCurrentUser] = useState<User>({
+    email: '',
+    name: 'Guest',
+    isLoggedIn: false
   });
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -130,27 +107,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [ordersList, setOrdersList] = useState<OrderTrack[]>([]);
   const [reviews, setReviews] = useState<PizzaReview[]>([]);
 
-  // --- PERSISTENCE SYNCS ---
-  // Synchronize reviews from Firestore in real-time
-  useEffect(() => {
-    const reviewsCol = collection(db, 'reviews');
-    const unsubscribe = onSnapshot(reviewsCol, (snapshot) => {
-      const list: PizzaReview[] = [];
-      snapshot.forEach(docSnap => {
-        list.push(docSnap.data() as PizzaReview);
-      });
-      list.sort((a, b) => b.createdAt - a.createdAt);
-      setReviews(list);
-    }, (error) => {
-      console.error("Firestore reviews subscription failure:", error);
-    });
-    return () => unsubscribe();
+  // --- TOAST SERVICE ---
+  const addToast = useCallback((text: string, type: 'success' | 'info' | 'error' | 'warning' = 'success') => {
+    const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+    // Strict requirement: Limit toast queue length to exactly one at all times to prevent multiple popups
+    setToasts([{ id, text, type }]);
+    
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4500);
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('pizza_palace_curr_user', JSON.stringify(currentUser));
-  }, [currentUser]);
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
 
+  // --- JWT SESSION RESTORATION ON STARTUP ---
+  useEffect(() => {
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('pizza_palace_jwt_token');
+      if (token) {
+        try {
+          const res = await fetch('/api/auth/profile', {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+              setCurrentUser({
+                uid: data.user._id || data.user.id,
+                name: data.user.name,
+                email: data.user.email,
+                role: data.user.role,
+                isLoggedIn: true
+              });
+              addToast(`Welcome back, ${data.user.name}!`, 'success');
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to verify existing session token:", err);
+        }
+        // Clean up invalid or expired tokens
+        localStorage.removeItem('pizza_palace_jwt_token');
+      }
+      
+      setCurrentUser({
+        email: '',
+        name: 'Guest',
+        isLoggedIn: false
+      });
+    };
+
+    initializeAuth();
+  }, [addToast]);
+
+  // --- PERSISTENCE SYNCS ---
   useEffect(() => {
     localStorage.setItem('pizza_palace_cart', JSON.stringify(cart));
   }, [cart]);
@@ -175,90 +189,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('pizza_palace_coupon', couponCode);
   }, [couponCode]);
 
-  // --- REAL-TIME AUTH MONITOR & SNAPSHOT ---
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          // Check for user Profile document in FireStore
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userSnap = await getDoc(userDocRef);
-          
-          let role: 'customer' | 'owner' = 'customer';
-          let name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Pizza Lover';
-          
-          // Determine if their email makes them an Owner
-          const emailLower = firebaseUser.email?.toLowerCase() || '';
-          if (emailLower === 'admin@pizzapalace.com') {
-            role = 'owner';
-          }
-
-          if (userSnap.exists()) {
-            const data = userSnap.data();
-            role = data.role || role;
-            name = data.name || name;
-          } else {
-            // Write profile document for new accounts using lazy set check
-            await setDoc(userDocRef, {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              name: name,
-              role: role
-            });
-          }
-
-          setCurrentUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: name,
-            isLoggedIn: true,
-            role: role
-          });
-          
-          addToast(`Authenticated as ${name}! (${role === 'owner' ? 'Owner Portal Active' : 'Customer Account'})`, 'success');
-        } catch (error) {
-          console.error("Error setting up user session: ", error);
-          setCurrentUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            name: firebaseUser.email?.split('@')[0] || 'Pizza Lover',
-            isLoggedIn: true,
-            role: 'customer'
-          });
-        }
-      } else {
-        setCurrentUser(prev => {
-          if (prev.isLoggedIn && prev.isLocal) {
-            return prev; // Maintain persistent local session bypass across reloads
-          }
-          return {
-            email: '',
-            name: 'Guest',
-            isLoggedIn: false
-          };
-        });
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // --- EXTRA EXPRESS REST ACTIVE SYNC FALLBACK LAYER ---
+  // --- EXPRESS API SYNC LAYER ---
   const syncOrdersFromServer = useCallback(async () => {
-    if (!currentUser.isLoggedIn || !currentUser.uid) return;
+    if (!currentUser.isLoggedIn) return;
     try {
-      const res = await fetch('/api/orders');
+      const token = localStorage.getItem('pizza_palace_jwt_token');
+      const res = await fetch('/api/orders', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (res.ok) {
         const allOrders: OrderTrack[] = await res.json();
-        // Owners see all orders, customers see only theirs
-        const userOrders = currentUser.role === 'owner'
-          ? allOrders
-          : allOrders.filter(o => o.customerUid === currentUser.uid);
         
-        userOrders.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-        setOrdersList(userOrders);
+        // Ensure accurate order sorting
+        allOrders.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        setOrdersList(allOrders);
 
-        const active = userOrders.find(o => o.status !== 'Delivered' && o.status !== 'Cancelled');
+        const active = allOrders.find(o => o.status !== 'Delivered' && o.status !== 'Cancelled');
         if (active) {
           setActiveOrder(active);
         } else {
@@ -266,7 +214,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (err) {
-      console.warn("Express order sync bypass warning:", err);
+      console.warn("Express order sync failure:", err);
     }
   }, [currentUser]);
 
@@ -275,82 +223,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const res = await fetch('/api/reviews');
       if (res.ok) {
         const allReviews: PizzaReview[] = await res.json();
+        allReviews.sort((a, b) => b.createdAt - a.createdAt);
         setReviews(allReviews);
       }
     } catch (err) {
-      console.warn("Express review sync bypass warning:", err);
+      console.warn("Express review sync failure:", err);
     }
   }, []);
 
   // Sync state initially and run background pool loop
   useEffect(() => {
-    if (!currentUser.isLoggedIn || !currentUser.uid) return;
-    
-    syncOrdersFromServer();
+    // Reviews are loaded for everyone
     syncReviewsFromServer();
+    
+    // Orders are loaded only for authenticated users
+    if (currentUser.isLoggedIn) {
+      syncOrdersFromServer();
+    } else {
+      setOrdersList([]);
+      setActiveOrder(null);
+    }
 
     const interval = setInterval(() => {
-      syncOrdersFromServer();
       syncReviewsFromServer();
-    }, 3000);
+      if (currentUser.isLoggedIn) {
+        syncOrdersFromServer();
+      }
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [currentUser, syncOrdersFromServer, syncReviewsFromServer]);
-
-  // --- REAL-TIME ORDER TRACKER FOR LOGGED OUT/IN USERS (FIRESTORE STREAM) ---
-  useEffect(() => {
-    if (!currentUser.isLoggedIn || !currentUser.uid) {
-      setActiveOrder(null);
-      setOrdersList([]);
-      return;
-    }
-
-    // Subscribe to customer's orders in Firestore
-    const ordersCol = collection(db, 'orders');
-    const q = query(
-      ordersCol, 
-      where('customerUid', '==', currentUser.uid)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const orders: OrderTrack[] = [];
-      snapshot.forEach(docSnap => {
-        orders.push(docSnap.data() as OrderTrack);
-      });
-
-      // Sort client-side to avoid needing a composite index
-      orders.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-      setOrdersList(orders);
-
-      // Set active order as the latest non-terminal order
-      const active = orders.find(o => o.status !== 'Delivered' && o.status !== 'Cancelled');
-      if (active) {
-        setActiveOrder(active);
-      } else {
-        setActiveOrder(null);
-      }
-    }, (error) => {
-      console.warn("Firestore orders query failure, continuing with Express Sync Fallback:", error);
-    });
-
-    return () => unsubscribe();
-  }, [currentUser]);
-
-  // --- TOAST SERVICE ---
-  const addToast = useCallback((text: string, type: 'success' | 'info' | 'error' | 'warning' = 'success') => {
-    const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-    // Strict requirement: Limit toast queue length to exactly one at all times to prevent multiple popups
-    setToasts([{ id, text, type }]);
-    
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4500);
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
 
   // --- CART FUNCTIONALITIES ---
   const addToCart = (pizza: Pizza, customization: PizzaCustomization, quantity: number) => {
@@ -432,49 +334,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const isWishlisted = (pizzaId: string) => wishlist.includes(pizzaId);
 
-  // --- REAL AUTH FLOW WITH HYBRID/LOCAL BYPASS FALLBACK ---
+  // --- MERN REST AUTHENTICATION FLOWS ---
   const loginUser = async (email: string, password?: string) => {
     if (!password) {
       addToast('Password credentials are required!', 'error');
       return;
     }
 
-    const emailLower = email.toLowerCase();
-    const isAdmin = emailLower === 'admin@pizzapalace.com' && password === 'pizzapalace';
-
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (err: any) {
-      console.warn("Firebase sign-in failed, checking for local admin bypass or client-side flow: ", err);
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
 
-      const isConfigError = err && (
-        err.code === 'auth/operation-not-allowed' || 
-        err.name === 'auth/operation-not-allowed' ||
-        err.message?.includes('operation-not-allowed') ||
-        err.message?.includes('auth-config-error') ||
-        err.message?.includes('network-request-failed')
-      );
-
-      if (isAdmin || isConfigError) {
-        const role = emailLower === 'admin@pizzapalace.com' ? 'owner' : 'customer';
-        const displayName = emailLower === 'admin@pizzapalace.com'
-          ? 'Admin Chef'
-          : (email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1) || 'Pizza Lover');
-
-        setCurrentUser({
-          uid: emailLower === 'admin@pizzapalace.com' ? 'admin_chef_id' : `local_uid_${Date.now()}`,
-          email: email,
-          name: displayName,
-          isLoggedIn: true,
-          role: role,
-          isLocal: true
-        });
-
-        addToast(`Successfully logged in as ${displayName}! (Offline Fallback)`, 'success');
-        return;
+      const data = await res.json();
+      if (res.ok && data.success) {
+        localStorage.setItem('pizza_palace_jwt_token', data.token);
+        setCurrentUser(data.user);
+        addToast(`Successfully logged in as ${data.user.name}!`, 'success');
+      } else {
+        throw new Error(data.message || 'Login failed.');
       }
-
-      addToast('Sign in failed! Please verify your password spelling.', 'error');
+    } catch (err: any) {
+      addToast(err.message || 'Sign in failed! Please verify credentials.', 'error');
       throw err;
     }
   };
@@ -485,72 +370,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const emailLower = email.toLowerCase();
-    const isAdmin = emailLower === 'admin@pizzapalace.com' && password === 'pizzapalace';
-
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      if (cred.user) {
-        await updateProfile(cred.user, { displayName: name || 'Pizza Lover' });
-        const userDocRef = doc(db, 'users', cred.user.uid);
-        
-        let role: 'customer' | 'owner' = 'customer';
-        if (emailLower === 'admin@pizzapalace.com') {
-          role = 'owner';
-        }
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, email, password })
+      });
 
-        try {
-          await setDoc(userDocRef, {
-            uid: cred.user.uid,
-            email: email,
-            name: name || 'Pizza Lover',
-            role: role
-          });
-        } catch (firestoreErr) {
-          console.warn("Could not save profile in Firestore, proceeding with authentication anyway:", firestoreErr);
-        }
+      const data = await res.json();
+      if (res.ok && data.success) {
+        localStorage.setItem('pizza_palace_jwt_token', data.token);
+        setCurrentUser(data.user);
+        addToast(`Crust account registered! Welcome, ${data.user.name}!`, 'success');
+      } else {
+        throw new Error(data.message || 'Registration failed.');
       }
     } catch (err: any) {
-      console.warn("Firebase sign-up failed, checking local fallback strategy: ", err);
-
-      const isConfigError = err && (
-        err.code === 'auth/operation-not-allowed' || 
-        err.name === 'auth/operation-not-allowed' ||
-        err.message?.includes('operation-not-allowed') ||
-        err.message?.includes('auth-config-error') ||
-        err.message?.includes('network-request-failed')
-      );
-
-      if (isAdmin || isConfigError) {
-        const role = emailLower === 'admin@pizzapalace.com' ? 'owner' : 'customer';
-        const displayName = name || (email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1) || 'Pizza Lover');
-
-        setCurrentUser({
-          uid: emailLower === 'admin@pizzapalace.com' ? 'admin_chef_id' : `local_uid_${Date.now()}`,
-          email: email,
-          name: displayName,
-          isLoggedIn: true,
-          role: role,
-          isLocal: true
-        });
-
-        addToast(`Successfully registered as ${displayName}! (Offline Fallback)`, 'success');
-        return;
-      }
-
-      addToast('Registration failed! Email might be already in use.', 'error');
+      addToast(err.message || 'Registration failed! Email might be already in use.', 'error');
       throw err;
     }
   };
 
   const logoutUser = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.warn("Firebase logout failed, cleaning up local storage session:", err);
-    }
-    localStorage.removeItem('pizza_palace_curr_user');
+    localStorage.removeItem('pizza_palace_jwt_token');
     setCurrentUser({ email: '', name: 'Guest', isLoggedIn: false });
+    setOrdersList([]);
     setActiveOrder(null);
     addToast('Logged out successfully.', 'info');
   };
@@ -590,10 +436,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // --- FIRESTORE SECURE ORDERING ACTIONS (COUPLING EXPRESS REST + FIRESTORE SYNC) ---
+  // --- SECURE ORDERING ACTIONS (SECURED BY JWT HEADER) ---
   const placeOrder = async (deliveryAddress: string, orderType: 'Delivery' | 'DineIn', tableNumber?: string): Promise<boolean> => {
     if (cart.length === 0) return false;
-    if (!currentUser.isLoggedIn || !currentUser.uid) {
+    if (!currentUser.isLoggedIn) {
       addToast('You must authenticate an account to place secure orders!', 'warning');
       return false;
     }
@@ -601,12 +447,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
     const resolvedAddress = orderType === 'Delivery' ? deliveryAddress : `Dine-In • Table ${tableNumber}`;
 
-    const newOrder: OrderTrack = {
+    const newOrder = {
       id: orderId,
-      userId: currentUser.uid || '',
-      customerUid: currentUser.uid || '',
-      customerEmail: currentUser.email || '',
-      customerName: currentUser.name || '',
+      customerEmail: currentUser.email,
+      customerName: currentUser.name,
       items: [...cart],
       subtotal,
       deliveryFee,
@@ -614,108 +458,92 @@ export function AppProvider({ children }: { children: ReactNode }) {
       discount,
       total,
       status: 'Received',
-      updatedAt: new Date().toLocaleTimeString(),
       deliveryAddress: resolvedAddress,
       orderType,
       tableNumber: tableNumber || '',
       couponCode: couponCode || '',
-      createdAt: Date.now()
     };
 
-    // 1. Post to Express REST endpoint for bulletproof shared storage
     try {
-      await fetch('/api/orders', {
+      const token = localStorage.getItem('pizza_palace_jwt_token');
+      const res = await fetch('/api/orders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(newOrder)
       });
-    } catch (err) {
-      console.warn("REST server backup order failed:", err);
-    }
 
-    // 2. Write to client-side Firestore for real-time cloud triggers
-    try {
-      await setDoc(doc(db, 'orders', orderId), newOrder);
-      clearCart();
-      setCouponCode('');
-      addToast('Your gourmet pizza order has been recorded in our live kitchen!', 'success');
-      syncOrdersFromServer();
-      return true;
-    } catch (err) {
-      console.warn("Firestore order placement failed, falling back to local simulation.", err);
-      setOrdersList(prev => [newOrder, ...prev]);
-      setActiveOrder(newOrder);
-      clearCart();
-      setCouponCode('');
-      addToast('Your gourmet pizza order has been placed successfully!', 'success');
-      syncOrdersFromServer();
-      return true;
+      const data = await res.json();
+      if (res.ok && data.success) {
+        clearCart();
+        setCouponCode('');
+        addToast('Your gourmet pizza order has been recorded in our live kitchen!', 'success');
+        syncOrdersFromServer();
+        return true;
+      } else {
+        throw new Error(data.message || 'Failed to place order.');
+      }
+    } catch (err: any) {
+      addToast(err.message || 'Order placement failed. Please try again.', 'error');
+      return false;
     }
   };
 
   const cancelActiveOrder = async () => {
     if (!activeOrder) return;
 
-    // 1. Update on Express server
     try {
-      await fetch(`/api/orders/${activeOrder.id}`, {
+      const token = localStorage.getItem('pizza_palace_jwt_token');
+      const res = await fetch(`/api/orders/${activeOrder.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ status: 'Cancelled' })
       });
-    } catch (err) {
-      console.warn("REST server patch failed:", err);
-    }
 
-    // 2. Update Firestore
-    try {
-      await updateDoc(doc(db, 'orders', activeOrder.id), {
-        status: 'Cancelled',
-        updatedAt: new Date().toLocaleTimeString()
-      });
-      addToast('Your order was cancelled. Our kitchen has ceased operation on it.', 'warning');
-      syncOrdersFromServer();
-    } catch (err) {
-      console.warn("Firestore order cancel failed, falling back to local state.", err);
-      // Fallback local state update:
-      setOrdersList(prev => prev.map(o => o.id === activeOrder.id ? { ...o, status: 'Cancelled', updatedAt: new Date().toLocaleTimeString() } : o));
-      setActiveOrder(null);
-      addToast('Your order was cancelled locally.', 'warning');
-      syncOrdersFromServer();
+      const data = await res.json();
+      if (res.ok) {
+        addToast('Your order was cancelled successfully.', 'warning');
+        syncOrdersFromServer();
+      } else {
+        throw new Error(data.error || 'Failed to cancel order.');
+      }
+    } catch (err: any) {
+      addToast(err.message || 'Failed to cancel active order.', 'error');
     }
   };
 
   const advanceOrderStatus = async (orderId: string, nextStatus: OrderStatus) => {
-    // 1. Update on Express server
     try {
-      await fetch(`/api/orders/${orderId}`, {
+      const token = localStorage.getItem('pizza_palace_jwt_token');
+      const res = await fetch(`/api/orders/${orderId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ status: nextStatus })
       });
-    } catch (err) {
-      console.warn("REST server patch status failed:", err);
-    }
 
-    // 2. Update Firestore
-    try {
-      await updateDoc(doc(db, 'orders', orderId), {
-        status: nextStatus,
-        updatedAt: new Date().toLocaleTimeString()
-      });
-      addToast(`Order ${orderId} successfully updated to "${nextStatus}".`, 'info');
-      syncOrdersFromServer();
-    } catch (err) {
-      console.warn("Firestore order status advance failed, falling back to local state.", err);
-      setOrdersList(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus, updatedAt: new Date().toLocaleTimeString() } : o));
-      addToast(`Order ${orderId} successfully updated to "${nextStatus}" (Offline Mode).`, 'info');
-      syncOrdersFromServer();
+      const data = await res.json();
+      if (res.ok) {
+        addToast(`Order ${orderId} successfully updated to "${nextStatus}".`, 'info');
+        syncOrdersFromServer();
+      } else {
+        throw new Error(data.error || 'Failed to advance status.');
+      }
+    } catch (err: any) {
+      addToast(err.message || 'Failed to advance order status.', 'error');
     }
   };
 
   const submitReview = async (orderId: string, pizzaId: string, pizzaName: string, rating: number, comment: string) => {
     const reviewId = 'REV-' + Date.now().toString() + Math.random().toString(36).substring(2, 5).toUpperCase();
-    const newReview: PizzaReview = {
+    const newReview = {
       id: reviewId,
       orderId,
       customerUid: currentUser.uid || 'guest_reviewer',
@@ -724,30 +552,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pizzaName,
       rating,
       comment,
-      createdAt: Date.now()
     };
     
-    // 1. Post to Express REST server
     try {
-      await fetch('/api/reviews', {
+      const res = await fetch('/api/reviews', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(newReview)
       });
-    } catch (err) {
-      console.warn("REST backup review post failed:", err);
-    }
 
-    // 2. Try Firestore write
-    try {
-      await setDoc(doc(db, 'reviews', reviewId), newReview);
-      addToast(`Thank you for reviewing the handcrafted ${pizzaName}! Your feedback means the world to our bakers.`, 'success');
-      syncReviewsFromServer();
-    } catch (err) {
-      console.error("Firestore submitReview failure:", err);
-      setReviews(prev => [newReview, ...prev]);
-      addToast(`Thank you for reviewing ${pizzaName}! (Offline Fallback)`, 'success');
-      syncReviewsFromServer();
+      const data = await res.json();
+      if (res.ok && data.success) {
+        addToast(`Thank you for reviewing "${pizzaName}"! Your feedback is highly appreciated.`, 'success');
+        syncReviewsFromServer();
+      } else {
+        throw new Error(data.message || 'Failed to submit review.');
+      }
+    } catch (err: any) {
+      addToast(err.message || 'Review submission failed.', 'error');
     }
   };
 
