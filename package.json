@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "dev": "vite --root frontend",
+    "build": "vite build --root frontend && esbuild backend/server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
-    "preview": "vite preview",
-    "clean": "rm -rf dist server.cjs",
-    "lint": "tsc --noEmit"
+    "preview": "vite preview --root frontend",
+    "clean": "rd /s /q dist && del /f /q server.cjs",
+    "lint": "tsc --project frontend/tsconfig.json --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
